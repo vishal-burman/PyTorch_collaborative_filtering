@@ -109,47 +109,48 @@ model = RecommenderNet(num_users, num_movies, EMBEDDING_SIZE)
 model = model.to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
+
 def compute_val_loss(net, data_loader):
     net.eval()
 
-    cost_val=0
+    cost_val = 0
     with torch.no_grad():
         for features, targets in data_loader:
-            features=features.to(device)
-            targets=targets.unsqueeze(1)
-            targets=targets.to(device)
-            logits=net(features)
-            cost_val+=F.binary_cross_entropy(logits, targets)
-        return cost_val/1000
+            features = features.to(device)
+            targets = targets.unsqueeze(1)
+            targets = targets.to(device)
+            logits = net(features)
+            cost_val += F.binary_cross_entropy(logits, targets)
+        return cost_val / 1000
 
-num_epochs = 5
+
+num_epochs = 10
 for epoch in range(num_epochs):
-    cost_train=0
+    cost_train = 0
     model.train()
     for idx, (features, targets) in enumerate(training_loader):
         features = features.to(device)
-        targets=targets.unsqueeze(1)
+        targets = targets.unsqueeze(1)
         targets = targets.to(device)
 
         # Forward and Back propagation
         preds = model(features)
         cost = F.binary_cross_entropy(preds, targets)
-        cost_train+=cost
+        cost_train += cost
         optimizer.zero_grad()
 
         # Update model parameters
         cost.backward()
         optimizer.step()
-    
 
-    print("Epoch: {}/{} || Train Loss: {} || Val Loss: {}".format(epoch+1, num_epochs, cost_train/1000, compute_val_loss(model, val_loader)))
-
+    print("Epoch: {}/{} || Train Loss: {} || Val Loss: {}".format(epoch + 1,
+                                                                  num_epochs, cost_train / 1000, compute_val_loss(model, val_loader)))
 
 
 ######################################################
 # Hacky...have to modify
-movie_df=pd.read_csv("ml-latest-small/movies.csv")
-df=dataset
+movie_df = pd.read_csv("ml-latest-small/movies.csv")
+df = dataset
 # Let us get a user and see the top recommendations.
 user_id = df.userId.sample(1).iloc[0]
 movies_watched_by_user = df[df.userId == user_id]
@@ -164,12 +165,11 @@ user_encoder = user2user_encoded.get(user_id)
 user_movie_array = np.hstack(
     ([[user_id]] * len(movies_not_watched), movies_not_watched)
 )
-user_movie_array=torch.from_numpy(user_movie_array)
+user_movie_array = torch.from_numpy(user_movie_array).to(device)
 ratings = model(user_movie_array).flatten()
-top_ratings_indices = ratings.argsort()[-10:][::-1]
-recommended_movie_ids = [
-    movie_encoded2movie.get(movies_not_watched[x][0]) for x in top_ratings_indices
-]
+top_ratings_indices = ratings.argsort()[-10:]
+recommended_movie_ids = [movie_encoded2movie.get(
+    movies_not_watched[x][0]) for x in top_ratings_indices]
 
 print("Showing recommendations for user: {}".format(user_id))
 print("====" * 9)
