@@ -1,7 +1,11 @@
+import sys
 import pandas as pd
 import torch
 import numpy as np
 import torch.nn as nn
+from torch.utils.data import Dataset
+from torch.utils.data import DataLoader
+
 dataset=pd.read_csv("ml-latest-small/ratings.csv")
 
 user_ids=dataset['userId'].unique().tolist()
@@ -30,16 +34,36 @@ print("Number of users: {}, Number of movies: {}, Min rating: {}, Max rating: {}
 #########################################
 # Prepare Training and Validation data
 dataset=dataset.sample(frac=1, random_state=42)
+
 x=dataset[["user", "movie"]].values
 y=dataset["rating"].apply(lambda x: (x-min_rating)/(max_rating-min_rating)).values
 
-train_indices=int(0.9* dataset.shape[0])
 x_train, x_val, y_train, y_val=(x[:train_indices], x[train_indices:], y[:train_indices], y[train_indices:])
-print(x_train[:5])
-print(y_train[:5])
-print(x_train[:, 0])
+
+train_indices=int(0.9* dataset.shape[0])
+
+class DatasetColab(Dataset):
+    def __init__(self, x, y):
+        self.x=x
+        self.y=y
+
+    def __len__(self):
+        return len(self.x)
+
+    def __getitem__(self, index):
+        X=self.x[index]
+        Y=self.y[index]
+
+        return X, Y
+
+
+training_set=DatasetColab(x_train, y_train)
+val_set=DatasetColab(x_val, y_val)
+
+training_loader=DataLoader(training_set, batch_size=4, shuffle=True)
+val_loader=DataLoader(val_set, batch_size=4, shuffle=False)
+
 ###########################################
-"""
 # Creating the PyTorch model
 class RecommenderNet(nn.Module):
     def __init__(self, num_users, num_movies, embedding_size):
@@ -64,4 +88,7 @@ class RecommenderNet(nn.Module):
         x=nn.functional.sigmoid(x)
         return x
 
-"""
+EMBEDDING_SIZE=50
+
+model=RecommenderNet(num_users, num_movies, EMBEDDING_SIZE)
+model=model.to(device)
