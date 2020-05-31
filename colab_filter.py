@@ -5,6 +5,11 @@ import numpy as np
 import torch.nn as nn
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
+import torch.nn.functional as F
+if torch.cuda.is_available():
+    torch.backends.cudnn.deterministic=True
+
+device=torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 dataset=pd.read_csv("ml-latest-small/ratings.csv")
 
@@ -38,9 +43,8 @@ dataset=dataset.sample(frac=1, random_state=42)
 x=dataset[["user", "movie"]].values
 y=dataset["rating"].apply(lambda x: (x-min_rating)/(max_rating-min_rating)).values
 
-x_train, x_val, y_train, y_val=(x[:train_indices], x[train_indices:], y[:train_indices], y[train_indices:])
-
 train_indices=int(0.9* dataset.shape[0])
+x_train, x_val, y_train, y_val=(x[:train_indices], x[train_indices:], y[:train_indices], y[train_indices:])
 
 class DatasetColab(Dataset):
     def __init__(self, x, y):
@@ -60,8 +64,8 @@ class DatasetColab(Dataset):
 training_set=DatasetColab(x_train, y_train)
 val_set=DatasetColab(x_val, y_val)
 
-training_loader=DataLoader(training_set, batch_size=4, shuffle=True)
-val_loader=DataLoader(val_set, batch_size=4, shuffle=False)
+training_loader=DataLoader(training_set, batch_size=64, shuffle=True)
+val_loader=DataLoader(val_set, batch_size=64, shuffle=False)
 
 ###########################################
 # Creating the PyTorch model
@@ -92,3 +96,23 @@ EMBEDDING_SIZE=50
 
 model=RecommenderNet(num_users, num_movies, EMBEDDING_SIZE)
 model=model.to(device)
+optimizer=torch.optim.Adam(model.parameters(), lr=0.001)
+
+num_epochs=5
+for epoch in range(num_epochs):
+    model.train()
+    for idx, (features, targets) in enumerate(training_loader):
+        features=features.to(device)
+        targets=targets.to(device)
+
+        preds=model(features)
+        cost=F.binary_cross_entropy(preds, targets)
+        optimizer.zero_grad()
+
+        cost.backward()
+        optimizer.step()
+
+
+        
+
+sys.exit("Stage")
