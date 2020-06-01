@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader
 import torch.nn.functional as F
 from pytorch_lightning.core.lightning import LightningModule
 import pytorch_lightning as pl
+
 if torch.cuda.is_available():
     torch.backends.cudnn.deterministic = True
 
@@ -16,7 +17,6 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 dataset = pd.read_csv("ml-latest-small/ratings.csv")
 
 user_ids = dataset['userId'].unique().tolist()
-print(len(user_ids))
 user2user_encoded = {x: i for i, x in enumerate(user_ids)}
 user_encoded2user = {i: x for i, x in enumerate(user_ids)}
 
@@ -45,6 +45,7 @@ print(
 
 #########################################
 # Prepare Training and Validation data
+
 dataset = dataset.sample(frac=1)
 
 x = dataset[["user", "movie"]].values
@@ -75,12 +76,6 @@ class DatasetColab(Dataset):
 
         return X, Y
 
-
-#training_set = DatasetColab(x_train, y_train)
-#val_set = DatasetColab(x_val, y_val)
-
-#training_loader = DataLoader(training_set, batch_size=64, shuffle=True)
-#val_loader = DataLoader(val_set, batch_size=64, shuffle=False)
 EMBEDDING_SIZE = 50
 
 ###########################################
@@ -155,8 +150,11 @@ class RecommenderNet(LightningModule):
 
 
 ############################################################
+
 model=RecommenderNet(num_users, num_movies, EMBEDDING_SIZE)
-input_type=input("Type train to train the model or type predict to predict from pretrained model")
+
+input_type=input("Type train to train the model or type predict to predict from pretrained model=")
+
 if input_type=="train":
     trainer=pl.Trainer(gpus=1, max_epoch=5)
     trainer.fit(model)
