@@ -57,10 +57,11 @@ x_train, x_val, y_train, y_val = (
     x[:train_indices], x[train_indices:], y[:train_indices], y[train_indices:])
 
 
-x_train=torch.from_numpy(x_train)
-y_train=torch.from_numpy(y_train).float()
-x_val=torch.from_numpy(x_val)
-y_val=torch.from_numpy(y_val).float()
+x_train = torch.from_numpy(x_train)
+y_train = torch.from_numpy(y_train).float()
+x_val = torch.from_numpy(x_val)
+y_val = torch.from_numpy(y_val).float()
+
 
 class DatasetColab(Dataset):
     def __init__(self, x, y):
@@ -76,6 +77,7 @@ class DatasetColab(Dataset):
 
         return X, Y
 
+
 EMBEDDING_SIZE = 50
 
 ###########################################
@@ -83,12 +85,12 @@ EMBEDDING_SIZE = 50
 
 
 class RecommenderNet(LightningModule):
-    def __init__(self, num_users, num_movies, embedding_size ):
+    def __init__(self, num_users, num_movies, embedding_size):
         super(RecommenderNet, self).__init__()
         self.num_users = num_users
         self.num_movies = num_movies
         self.embedding_size = embedding_size
-        self.loss=nn.BCELoss()
+        self.loss = nn.BCELoss()
 
         self.user_embedding = nn.Embedding(num_users, embedding_size)
         self.user_bias = nn.Embedding(num_users, 1)
@@ -107,68 +109,75 @@ class RecommenderNet(LightningModule):
         return x
 
     def prepare_data(self):
-        self.training_set=DatasetColab(x_train, y_train)
-        self.val_set=DatasetColab(x_val, y_val)
+        self.training_set = DatasetColab(x_train, y_train)
+        self.val_set = DatasetColab(x_val, y_val)
 
     def train_dataloader(self):
-        training_loader=DataLoader(self.training_set, batch_size=64, shuffle=True)
+        training_loader = DataLoader(
+            self.training_set, batch_size=64, shuffle=True)
         return training_loader
 
     def val_dataloader(self):
-        val_loader=DataLoader(self.val_set, batch_size=64, shuffle=False)
+        val_loader = DataLoader(self.val_set, batch_size=64, shuffle=False)
         return val_loader
 
     def configure_optimizers(self):
-        optimizer=torch.optim.Adam(self.parameters(), lr=0.001 ,  eps=1e-7)
+        optimizer = torch.optim.Adam(self.parameters(), lr=0.001, eps=1e-7)
         return optimizer
 
     def training_step(self, batch, batch_idx):
-        features, targets=batch
-        targets=targets.unsqueeze(1)
-        outputs=self.forward(features)
-        cost=self.loss(outputs, targets)
-        log={'train_loss': cost}
-        return {'loss':cost, 'log': log}
+        features, targets = batch
+        targets = targets.unsqueeze(1)
+        outputs = self.forward(features)
+        cost = self.loss(outputs, targets)
+        log = {'train_loss': cost}
+        return {'loss': cost, 'log': log}
 
     def training_epoch_end(self, outputs):
-        avg_loss=torch.stack([x['loss'] for x in outputs]).mean()
-        tensorboard_logs={'avg_train_loss': avg_loss}
-        return {'avg_train_loss': avg_loss, 'log': tensorboard_logs, 'progress_bar': tensorboard_logs}
+        avg_loss = torch.stack([x['loss'] for x in outputs]).mean()
+        tensorboard_logs = {'avg_train_loss': avg_loss}
+        return {
+            'avg_train_loss': avg_loss,
+            'log': tensorboard_logs,
+            'progress_bar': tensorboard_logs}
 
     def validation_step(self, batch, batch_idx):
-        features, targets=batch
-        targets=targets.unsqueeze(1)
-        outputs=self.forward(features)
-        cost=self.loss(outputs, targets)
+        features, targets = batch
+        targets = targets.unsqueeze(1)
+        outputs = self.forward(features)
+        cost = self.loss(outputs, targets)
         return {'val_loss': cost}
 
     def validation_epoch_end(self, outputs):
         avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
-        log={'avg_loss': avg_loss}
+        log = {'avg_loss': avg_loss}
         return {'avg_loss': avg_loss, 'log': log}
-
 
 
 ############################################################
 
-model=RecommenderNet(num_users, num_movies, EMBEDDING_SIZE)
+model = RecommenderNet(num_users, num_movies, EMBEDDING_SIZE)
 
-input_type=input("Type train to train the model or type predict to predict from pretrained model=")
+input_type = input(
+    "Type train to train the model or type predict to predict from pretrained model=")
 
-if input_type=="train":
-    trainer=pl.Trainer(gpus=1, max_epoch=5)
+if input_type == "train":
+    trainer = pl.Trainer(gpus=1, max_epoch=5)
     trainer.fit(model)
     trainer.save_checkpoint('example.ckpt')
 else:
-    device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    checkpoint=torch.load('example.ckpt', map_location= lambda storage, loc: storage)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    checkpoint = torch.load(
+        'example.ckpt',
+        map_location=lambda storage,
+        loc: storage)
     model.load_state_dict(checkpoint['state_dict'])
     model.eval()
 
     movie_df = pd.read_csv("ml-latest-small/movies.csv")
     df = dataset
     # Let us get a user and see the top recommendations.
-    user_id=242
+    user_id = 242
     #user_id = df.userId.sample(1).iloc[0]
     movies_watched_by_user = df[df.userId == user_id]
     movies_not_watched = movie_df[
@@ -177,7 +186,8 @@ else:
     movies_not_watched = list(
         set(movies_not_watched).intersection(set(movie2movie_encoded.keys()))
     )
-    movies_not_watched = [[movie2movie_encoded.get(x)] for x in movies_not_watched]
+    movies_not_watched = [
+        [movie2movie_encoded.get(x)] for x in movies_not_watched]
     user_encoder = user2user_encoded.get(user_id)
     user_movie_array = np.hstack(
         ([[user_id]] * len(movies_not_watched), movies_not_watched)
@@ -204,6 +214,7 @@ else:
     print("----" * 8)
     print("Top 10 movie recommendations")
     print("----" * 8)
-    recommended_movies = movie_df[movie_df["movieId"].isin(recommended_movie_ids)]
+    recommended_movies = movie_df[movie_df["movieId"].isin(
+        recommended_movie_ids)]
     for row in recommended_movies.itertuples():
         print(row.title, ":", row.genres)
